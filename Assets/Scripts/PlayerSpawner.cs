@@ -13,15 +13,6 @@ public class PlayerSpawner : NetworkBehaviour
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
         }
     }
-
-    private void OnDestroy()
-    {
-        if (IsServer)
-        {
-            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
-        }
-    }
-
     private void OnClientConnected(ulong clientId)
     {
         // Choose a random spawn point
