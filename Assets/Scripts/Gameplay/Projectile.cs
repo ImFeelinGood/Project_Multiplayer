@@ -1,11 +1,10 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 
 public class Projectile : NetworkBehaviour
 {
     public int damage = 30;
+
     private void OnCollisionEnter(Collision collision)
     {
         // Check if the projectile hits an object
@@ -16,7 +15,7 @@ public class Projectile : NetworkBehaviour
             if (targetHealth != null)
             {
                 // Deal damage (you may want to adjust this)
-                targetHealth.TakeDamage(20); // Example damage
+                targetHealth.TakeDamage(damage); // Example damage
             }
         }
 

@@ -21,14 +21,6 @@ public class NetworkUI : NetworkBehaviour
         clientButton.onClick.AddListener(StartClient);
     }
 
-    private void Update()
-    {
-        playersCountText.text = "Players: " + playersNum.Value.ToString();
-
-        if (!IsServer) return;
-        playersNum.Value = NetworkManager.Singleton.ConnectedClients.Count;
-    }
-
     private void StartHost()
     {
         NetworkManager.Singleton.StartHost();
