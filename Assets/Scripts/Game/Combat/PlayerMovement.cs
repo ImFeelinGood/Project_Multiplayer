@@ -14,6 +14,8 @@ public class PlayerMovement : NetworkBehaviour
     [SerializeField] private float groundDistance = 0.4f;
     [SerializeField] private LayerMask groundMask;
 
+    public Vector3 targetPosition;
+    public Quaternion targetRotation;
     private CharacterController controller;
     private Vector3 velocity;
     private bool isGrounded;
@@ -25,6 +27,17 @@ public class PlayerMovement : NetworkBehaviour
         if (cameraTransform == null)
         {
             Debug.LogError("Camera Transform is not assigned in PlayerMovement script!");
+        }
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        if (IsOwner)
+        {
+            int playerId = (int)OwnerClientId;
+            Transform spawnPoint = GameManager.instance.GetSpawnPoint(playerId);
+
+            UpdatePositionServerRPC(spawnPoint.position, spawnPoint.rotation);
         }
     }
 
@@ -76,6 +89,12 @@ public class PlayerMovement : NetworkBehaviour
             Quaternion toRotation = Quaternion.LookRotation(forward, Vector3.up);
             transform.rotation = Quaternion.RotateTowards(transform.rotation, toRotation, rotationSpeed * Time.deltaTime);
         }
+    }
+    [ServerRpc(RequireOwnership = false)]
+    public void UpdatePositionServerRPC(Vector3 position, Quaternion rotation)
+    {
+        targetPosition = position;
+        targetRotation = rotation;
     }
 }
 

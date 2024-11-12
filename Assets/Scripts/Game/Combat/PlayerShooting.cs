@@ -11,6 +11,9 @@ public class PlayerShooting : NetworkBehaviour
     public float shootingForce = 300f; // Force for the cosmetic projectile
     public float gunCooldown = 1f; // Cooldown for shooting
 
+    [Header("Shooting Settings")]
+    public int damage = 30; // Damage value, editable from Inspector
+
     private PlayerInfo playerInfo;
     private bool isShooting;
 
@@ -19,9 +22,15 @@ public class PlayerShooting : NetworkBehaviour
         playerInfo = GetComponent<PlayerInfo>();
     }
 
-    // Shoot method using raycast
     public void Shoot()
     {
+        // Prevent shooting if the player is reloading or already shooting (cooldown)
+        if (playerInfo.isReloading)
+        {
+            Debug.Log("Cannot shoot while reloading.");
+            return;
+        }
+
         // Check if there is ammo before shooting
         if (playerInfo.currentAmmo > 0)
         {
@@ -41,7 +50,7 @@ public class PlayerShooting : NetworkBehaviour
                 if (targetPlayer != null && targetPlayer != playerInfo)
                 {
                     // Call ServerRpc to apply damage
-                    HitTargetServerRpc(targetPlayer.NetworkObjectId);
+                    HitTargetServerRpc(targetPlayer.NetworkObjectId, damage);
                 }
             }
 
@@ -56,19 +65,19 @@ public class PlayerShooting : NetworkBehaviour
     }
 
     // ServerRpc to apply damage to the target player
-    [ServerRpc]
-    private void HitTargetServerRpc(ulong targetNetworkObjectId)
+    [ServerRpc(RequireOwnership = false)]
+    private void HitTargetServerRpc(ulong targetNetworkObjectId, int damage)
     {
-        NetworkObject targetObject = NetworkManager.Singleton.SpawnManager.SpawnedObjects[targetNetworkObjectId];
-        if (targetObject != null)
+        if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(targetNetworkObjectId, out NetworkObject targetObject))
         {
             PlayerInfo targetPlayer = targetObject.GetComponent<PlayerInfo>();
             if (targetPlayer != null)
             {
-                targetPlayer.TakeDamage(30); // Example damage value
+                targetPlayer.TakeDamage(damage); // Apply damage to the target player
             }
         }
     }
+
 
     // Method to spawn a cosmetic projectile locally
     private void SpawnCosmeticProjectile()

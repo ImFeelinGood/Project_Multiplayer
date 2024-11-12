@@ -9,6 +9,8 @@ public class PlayerInfo : NetworkBehaviour
     public int inventoryAmmo = 30; // Total ammo available
     public int currentAmmo; // Current ammo in magazine
     public int health = 100; // Player health
+    public bool isReloading = false; // Track if the player is currently reloading
+    public float reloadTime = 3f; // Time required to reload
 
     [Header("Ragdoll & Respawn")]
     public Transform spawnPoint; // The point where the player will respawn
@@ -36,6 +38,22 @@ public class PlayerInfo : NetworkBehaviour
             Debug.Log("Player died.");
             HandleDeathServerRpc();
         }
+    }
+
+    // Method to restore health
+    public void RestoreHealth(int amount)
+    {
+        health += amount;
+        if (health > 100) health = 100; // Cap health at 100
+        Debug.Log("Health restored by " + amount);
+    }
+
+    // Method to restore ammo
+    public void RestoreAmmo(int amount)
+    {
+        inventoryAmmo += amount;
+        if (inventoryAmmo > 30) inventoryAmmo = 30; // Cap ammo at max capacity
+        Debug.Log("Ammo restored by " + amount);
     }
 
     // ServerRpc to handle player death and ragdoll
@@ -81,6 +99,25 @@ public class PlayerInfo : NetworkBehaviour
     // Reload method to refill ammo
     public void Reload()
     {
+        // Check if the player is already reloading
+        if (isReloading || currentAmmo == maxAmmo || inventoryAmmo == 0)
+        {
+            return;
+        }
+
+        // Start the reload coroutine
+        StartCoroutine(ReloadCoroutine());
+    }
+
+    private IEnumerator ReloadCoroutine()
+    {
+        isReloading = true;
+        Debug.Log("Reloading...");
+
+        // Wait for the reload time (3 seconds)
+        yield return new WaitForSeconds(reloadTime);
+
+        // Calculate the ammo needed and update ammo counts
         int ammoNeeded = maxAmmo - currentAmmo;
         if (inventoryAmmo >= ammoNeeded)
         {
@@ -92,20 +129,8 @@ public class PlayerInfo : NetworkBehaviour
             currentAmmo += inventoryAmmo;
             inventoryAmmo = 0;
         }
-        Debug.Log("Reloaded ammo.");
-    }
 
-    // Method to handle damage from specific projectile
-    private void OnTriggerEnter(Collider other)
-    {
-        if (other.CompareTag("Projectile"))
-        {
-            Projectile projectile = other.GetComponent<Projectile>();
-            if (projectile != null)
-            {
-                TakeDamage(projectile.damage);
-                Destroy(other.gameObject);
-            }
-        }
+        Debug.Log("Reloaded ammo.");
+        isReloading = false; // Reset the reloading flag
     }
 }
