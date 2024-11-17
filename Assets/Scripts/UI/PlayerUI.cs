@@ -24,6 +24,6 @@ public class PlayerUI : MonoBehaviour
 
         // Update the UI with the current status
         ammoText.text = $"Ammo: {playerInfo.currentAmmo} / {playerInfo.inventoryAmmo}";
-        healthText.text = $"Health: {playerInfo.health} / 100";
+        healthText.text = $"Health: {playerInfo.health.Value} / 100";
     }
 }

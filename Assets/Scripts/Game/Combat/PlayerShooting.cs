@@ -68,16 +68,34 @@ public class PlayerShooting : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     private void HitTargetServerRpc(ulong targetNetworkObjectId, int damage)
     {
+        Debug.Log($"[ServerRpc] Attempting to damage object with NetworkObjectId: {targetNetworkObjectId}");
+
+        // Try to get the NetworkObject using the NetworkObjectId
         if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(targetNetworkObjectId, out NetworkObject targetObject))
         {
             PlayerInfo targetPlayer = targetObject.GetComponent<PlayerInfo>();
+
             if (targetPlayer != null)
             {
-                targetPlayer.TakeDamage(damage); // Apply damage to the target player
+                // Check if the server is correctly identifying the client target
+                Debug.Log($"[ServerRpc] Target identified: {targetPlayer.gameObject.name}, applying {damage} damage.");
+
+                // Apply damage on the server
+                targetPlayer.TakeDamage(damage);
+
+                // Debug to confirm damage application
+                Debug.Log($"[ServerRpc] Applied {damage} damage to {targetPlayer.gameObject.name}. Current Health: {targetPlayer.health}");
+            }
+            else
+            {
+                Debug.LogWarning("[ServerRpc] Target PlayerInfo component not found.");
             }
         }
+        else
+        {
+            Debug.LogWarning("[ServerRpc] NetworkObject not found in SpawnedObjects.");
+        }
     }
-
 
     // Method to spawn a cosmetic projectile locally
     private void SpawnCosmeticProjectile()

@@ -14,10 +14,10 @@ public class HealthPickup : NetworkBehaviour
         {
             Debug.Log("Player take Health");
             PlayerInfo player = other.GetComponent<PlayerInfo>();
-            if (player != null && player.health < 100)
+            if (player != null && player.health.Value < 100)
             {
                 // Restore 50% of the player's max health
-                int restoreAmount = Mathf.Min(healthRestoreAmount, 100 - player.health);
+                int restoreAmount = Mathf.Min(healthRestoreAmount, 100 - player.health.Value);
                 player.RestoreHealth(restoreAmount);
 
                 // Despawn the pickup on the server

@@ -8,7 +8,7 @@ public class PlayerInfo : NetworkBehaviour
     public int maxAmmo = 6; // Max ammo in magazine
     public int inventoryAmmo = 30; // Total ammo available
     public int currentAmmo; // Current ammo in magazine
-    public int health = 100; // Player health
+    public NetworkVariable<int> health = new NetworkVariable<int>(100);
     public bool isReloading = false; // Track if the player is currently reloading
     public float reloadTime = 3f; // Time required to reload
 
@@ -31,20 +31,22 @@ public class PlayerInfo : NetworkBehaviour
     // Method to decrease health
     public void TakeDamage(int damage)
     {
-        health -= damage;
-        if (health <= 0)
+        if (IsServer)
         {
-            // Handle player death
-            Debug.Log("Player died.");
-            HandleDeathServerRpc();
+            health.Value -= damage;
+            if (health.Value <= 0)
+            {
+                Debug.Log("Player died.");
+                HandleDeathServerRpc();
+            }
         }
     }
 
     // Method to restore health
     public void RestoreHealth(int amount)
     {
-        health += amount;
-        if (health > 100) health = 100; // Cap health at 100
+        health.Value += amount;
+        if (health.Value > 100) health.Value = 100; // Cap health at 100
         Debug.Log("Health restored by " + amount);
     }
 
@@ -79,18 +81,38 @@ public class PlayerInfo : NetworkBehaviour
         }
     }
 
+    [ServerRpc(RequireOwnership = false)]
+    private void SetRespawnPositionServerRpc(Vector3 position, Quaternion rotation)
+    {
+        transform.position = position;
+        transform.rotation = rotation;
+    }
+
     // Coroutine to respawn the player
     private IEnumerator RespawnPlayer()
     {
         yield return new WaitForSeconds(respawnDelay);
 
+        if (spawnPoint == null)
+        {
+            Debug.LogError("Spawn point is not assigned!");
+            yield break;
+        }
+
         // Reset health and ammo
-        health = 100;
+        health.Value = 100;
         currentAmmo = maxAmmo;
 
         // Move the player to the spawn point
-        transform.position = spawnPoint.position;
-        transform.rotation = spawnPoint.rotation;
+        if (IsServer)
+        {
+            transform.position = spawnPoint.position;
+            transform.rotation = spawnPoint.rotation;
+        }
+        else
+        {
+            SetRespawnPositionServerRpc(spawnPoint.position, spawnPoint.rotation);
+        }
 
         // Disable ragdoll and re-enable player controls
         ToggleRagdoll(false);
