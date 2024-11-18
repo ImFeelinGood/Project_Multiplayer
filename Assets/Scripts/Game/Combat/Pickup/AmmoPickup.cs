@@ -13,11 +13,13 @@ public class AmmoPickup : NetworkBehaviour
         if (other.CompareTag("Player"))
         {
             PlayerInfo player = other.GetComponent<PlayerInfo>();
-            if (player != null && player.inventoryAmmo < 30)
+            if (player != null && player.inventoryAmmo.Value < 30)
             {
-                // Restore 50% of the player's max ammo
-                int restoreAmount = Mathf.Min(ammoRestoreAmount, 30 - player.inventoryAmmo);
-                player.RestoreAmmo(restoreAmount);
+                // Calculate how much ammo to restore
+                int restoreAmount = Mathf.Min(ammoRestoreAmount, 30 - player.inventoryAmmo.Value);
+
+                // Request the server to restore ammo
+                player.RestoreAmmoServerRpc(restoreAmount);
 
                 // Despawn the pickup on the server
                 DespawnPickupServerRpc();

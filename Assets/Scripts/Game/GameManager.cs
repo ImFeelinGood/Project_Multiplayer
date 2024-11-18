@@ -1,25 +1,45 @@
-using System.Collections;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class GameManager : NetworkBehaviour
 {
     public static GameManager instance;
-    public Camera mainCamera; 
-
     public Transform[] spawnPoints;
+    public GameObject mainMenuPanel; // Reference to the main menu panel
+
+    private bool isMainMenuOpen = false;
+
+    private void Awake()
+    {
+        // Ensure only one instance exists
+        if (instance == null)
+        {
+            instance = this;
+            DontDestroyOnLoad(gameObject); // Keep GameManager across scenes
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
 
     void Start()
     {
+        // Initialize the instance and lock cursor
         instance = this;
+        LockCursor();
 
-        mainCamera = Camera.main;
+        // Hide the main menu panel at the start
+        if (mainMenuPanel != null)
+        {
+            mainMenuPanel.SetActive(false);
+        }
 
         NetworkManager.Singleton.NetworkConfig.ConnectionApproval = true;
-        if(RelayManager.instance.isHost)
+
+        if (RelayManager.instance.isHost)
         {
             NetworkManager.Singleton.ConnectionApprovalCallback = ConnectionApproval;
             (byte[] allocationId, byte[] key, byte[] connectionData, string ip, int port) = RelayManager.instance.GetHostConnectionInfo();
@@ -34,52 +54,72 @@ public class GameManager : NetworkBehaviour
         }
     }
 
+    private void Update()
+    {
+        // Toggle main menu with Esc key
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (isMainMenuOpen)
+            {
+                CloseMainMenu();
+            }
+            else
+            {
+                OpenMainMenu();
+            }
+        }
+    }
+
     private void ConnectionApproval(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
     {
-        response.Approved = true;   
+        response.Approved = true;
         response.CreatePlayerObject = true;
         response.Pending = false;
     }
 
     public Transform GetSpawnPoint(int playerId)
-    {   
+    {
         return spawnPoints[playerId % spawnPoints.Length];
     }
 
-
-
-    [ClientRpc]
-    public void ShakeCameraClientRpc(ulong networkObjectId)
-    {
-        if (NetworkManager.Singleton.SpawnManager.GetPlayerNetworkObject(NetworkManager.Singleton.LocalClientId).NetworkObjectId == networkObjectId)
-        {
-            StartCoroutine(CameraShakeCoroutine());
-        }
-    }
-
-    private IEnumerator CameraShakeCoroutine()
-    {
-        Vector3 originalPosition = mainCamera.transform.position;
-        float shakeAmount = 0.1f; 
-        float shakeDuration = 0.5f;
-
-        float elapsed = 0f;
-        while (elapsed < shakeDuration)
-        {
-            Vector3 randomOffset = Random.insideUnitSphere * shakeAmount;
-            mainCamera.transform.position = originalPosition + randomOffset;
-
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-
-        mainCamera.transform.position = originalPosition;
-    }
-    
     public void BackToMainMenu()
     {
+        // Shutdown the network and load the main menu
         NetworkManager.Singleton.Shutdown();
+        SceneManager.LoadScene("MainMenu2");
+    }
 
-        SceneManager.LoadScene("Main Menu");
+    public void OpenMainMenu()
+    {
+        isMainMenuOpen = true;
+        if (mainMenuPanel != null)
+        {
+            mainMenuPanel.SetActive(true);
+        }
+        UnlockCursor();
+        Time.timeScale = 0f; // Pause the game
+    }
+
+    public void CloseMainMenu()
+    {
+        isMainMenuOpen = false;
+        if (mainMenuPanel != null)
+        {
+            mainMenuPanel.SetActive(false);
+        }
+        LockCursor();
+        Time.timeScale = 1f; // Resume the game
+    }
+
+    private void LockCursor()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
+    private void UnlockCursor()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 }

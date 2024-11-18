@@ -16,6 +16,7 @@ public class PlayerMovement : NetworkBehaviour
 
     public Vector3 targetPosition;
     public Quaternion targetRotation;
+    public bool isMoving; // Tracks if the player is moving
     private CharacterController controller;
     private Vector3 velocity;
     private bool isGrounded;
@@ -45,20 +46,22 @@ public class PlayerMovement : NetworkBehaviour
     {
         if (!IsOwner || cameraTransform == null) return;
 
-        // Check if the player is grounded by casting a small sphere at their feet
+        // Check if the player is grounded
         isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
 
-        // Reset vertical velocity when grounded
         if (isGrounded && velocity.y < 0)
         {
-            velocity.y = -2f;  // Small downward force to keep grounded
+            velocity.y = -2f;
         }
 
         // Cache input values
         float horizontalInput = Input.GetAxis("Horizontal");
         float verticalInput = Input.GetAxis("Vertical");
 
-        // Calculate movement direction relative to the camera's orientation
+        // Determine if the player is moving
+        isMoving = (horizontalInput != 0 || verticalInput != 0);
+
+        // Movement logic
         Vector3 forward = cameraTransform.forward;
         Vector3 right = cameraTransform.right;
 
@@ -73,7 +76,7 @@ public class PlayerMovement : NetworkBehaviour
         // Move the player
         controller.Move(movementDirection * movementSpeed * Time.deltaTime);
 
-        // Jump if grounded and jump button is pressed
+        // Jump if grounded
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
             velocity.y = Mathf.Sqrt(jumpForce * -2f * gravity);
@@ -83,13 +86,14 @@ public class PlayerMovement : NetworkBehaviour
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
 
-        // Rotate player to face forward/backward movement only
+        // Rotate the player
         if (verticalInput != 0)
         {
             Quaternion toRotation = Quaternion.LookRotation(forward, Vector3.up);
             transform.rotation = Quaternion.RotateTowards(transform.rotation, toRotation, rotationSpeed * Time.deltaTime);
         }
     }
+
     [ServerRpc(RequireOwnership = false)]
     public void UpdatePositionServerRPC(Vector3 position, Quaternion rotation)
     {
@@ -99,6 +103,8 @@ public class PlayerMovement : NetworkBehaviour
 }
 
 
+
+//Dont mind me this is just a RigidBody movement that failed
 /*public class PlayerMovement : NetworkBehaviour
 {
     [SerializeField] private float movementSpeed = 7f;

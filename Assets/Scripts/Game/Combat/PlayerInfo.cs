@@ -6,10 +6,10 @@ public class PlayerInfo : NetworkBehaviour
 {
     [Header("Player Stats")]
     public int maxAmmo = 6; // Max ammo in magazine
-    public int inventoryAmmo = 30; // Total ammo available
-    public int currentAmmo; // Current ammo in magazine
+    public NetworkVariable<int> inventoryAmmo = new NetworkVariable<int>(30); // Total ammo available
+    public NetworkVariable<int> currentAmmo = new NetworkVariable<int>(); // Current ammo in magazine
     public NetworkVariable<int> health = new NetworkVariable<int>(100);
-    public bool isReloading = false; // Track if the player is currently reloading
+    public NetworkVariable<bool> isReloading = new NetworkVariable<bool>(false); // Track if the player is reloading
     public float reloadTime = 3f; // Time required to reload
 
     [Header("Ragdoll & Respawn")]
@@ -20,12 +20,10 @@ public class PlayerInfo : NetworkBehaviour
 
     private void Start()
     {
-        currentAmmo = maxAmmo; // Start with a full magazine
-        ragdollBodies = GetComponentsInChildren<Rigidbody>();
-        animator = GetComponent<Animator>();
-
-        // Disable ragdoll at the start
-        ToggleRagdoll(false);
+        if (IsServer)
+        {
+            currentAmmo.Value = maxAmmo; // Initialize currentAmmo only on the server
+        }
     }
 
     // Method to decrease health
@@ -43,18 +41,21 @@ public class PlayerInfo : NetworkBehaviour
     }
 
     // Method to restore health
-    public void RestoreHealth(int amount)
+    [ServerRpc(RequireOwnership = false)]
+    public void RestoreHealthServerRpc(int amount)
     {
+        // Only modify health on the server
         health.Value += amount;
         if (health.Value > 100) health.Value = 100; // Cap health at 100
         Debug.Log("Health restored by " + amount);
     }
 
-    // Method to restore ammo
-    public void RestoreAmmo(int amount)
+    // Method to restore ammo (ServerRpc)
+    [ServerRpc(RequireOwnership = false)]
+    public void RestoreAmmoServerRpc(int amount)
     {
-        inventoryAmmo += amount;
-        if (inventoryAmmo > 30) inventoryAmmo = 30; // Cap ammo at max capacity
+        inventoryAmmo.Value += amount;
+        if (inventoryAmmo.Value > 30) inventoryAmmo.Value = 30; // Cap ammo at max capacity
         Debug.Log("Ammo restored by " + amount);
     }
 
@@ -101,7 +102,7 @@ public class PlayerInfo : NetworkBehaviour
 
         // Reset health and ammo
         health.Value = 100;
-        currentAmmo = maxAmmo;
+        currentAmmo.Value = maxAmmo;
 
         // Move the player to the spawn point
         if (IsServer)
@@ -118,41 +119,47 @@ public class PlayerInfo : NetworkBehaviour
         ToggleRagdoll(false);
     }
 
-    // Reload method to refill ammo
+    // ServerRpc to handle reload logic on the server
+    [ServerRpc(RequireOwnership = false)]
+    private void ReloadServerRpc()
+    {
+        if (isReloading.Value) return; // Prevent duplicate reloads
+        isReloading.Value = true; // Set reloading state
+        StartCoroutine(ReloadCoroutine());
+    }
+
+    // Reload method to initiate reload process
     public void Reload()
     {
-        // Check if the player is already reloading
-        if (isReloading || currentAmmo == maxAmmo || inventoryAmmo == 0)
+        // Check if already reloading or if conditions for reload are invalid
+        if (isReloading.Value || currentAmmo.Value == maxAmmo || inventoryAmmo.Value == 0)
         {
             return;
         }
 
-        // Start the reload coroutine
-        StartCoroutine(ReloadCoroutine());
+        Debug.Log("Reloading...");
+        ReloadServerRpc(); // Trigger reload on the server
     }
 
+    // Coroutine to handle the reload process
     private IEnumerator ReloadCoroutine()
     {
-        isReloading = true;
-        Debug.Log("Reloading...");
-
-        // Wait for the reload time (3 seconds)
         yield return new WaitForSeconds(reloadTime);
 
         // Calculate the ammo needed and update ammo counts
-        int ammoNeeded = maxAmmo - currentAmmo;
-        if (inventoryAmmo >= ammoNeeded)
+        int ammoNeeded = maxAmmo - currentAmmo.Value;
+        if (inventoryAmmo.Value >= ammoNeeded)
         {
-            currentAmmo += ammoNeeded;
-            inventoryAmmo -= ammoNeeded;
+            currentAmmo.Value += ammoNeeded;
+            inventoryAmmo.Value -= ammoNeeded;
         }
         else
         {
-            currentAmmo += inventoryAmmo;
-            inventoryAmmo = 0;
+            currentAmmo.Value += inventoryAmmo.Value;
+            inventoryAmmo.Value = 0;
         }
 
         Debug.Log("Reloaded ammo.");
-        isReloading = false; // Reset the reloading flag
+        isReloading.Value = false; // Reset reloading state
     }
 }

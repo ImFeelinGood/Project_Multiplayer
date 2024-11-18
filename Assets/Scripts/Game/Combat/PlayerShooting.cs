@@ -5,58 +5,79 @@ using Unity.Netcode;
 public class PlayerShooting : NetworkBehaviour
 {
     [Header("References")]
-    public GameObject cosmeticProjectilePrefab; // Cosmetic projectile prefab
-    public Transform shootingPoint; // Where the visual projectile will appear
-    public Camera playerCamera; // The player's camera
-    public float shootingForce = 300f; // Force for the cosmetic projectile
-    public float gunCooldown = 1f; // Cooldown for shooting
+    public GameObject cosmeticProjectilePrefab;
+    public GameObject bulletHolePrefab; // Bullet hole prefab reference
+    public Transform shootingPoint;
+    public Camera playerCamera;
+    public float shootingForce = 300f;
+    public float gunCooldown = 1f;
 
     [Header("Shooting Settings")]
-    public int damage = 30; // Damage value, editable from Inspector
+    public int damage = 30;
+    public float movingAccuracy = 0.6f; // 60% accuracy
+    public float standingAccuracy = 0.9f; // 90% accuracy
 
     private PlayerInfo playerInfo;
+    private PlayerMovement playerMovement;
     private bool isShooting;
 
     private void Start()
     {
         playerInfo = GetComponent<PlayerInfo>();
+        playerMovement = GetComponent<PlayerMovement>();
+    }
+
+    // ServerRpc to handle ammo deduction and shooting logic
+    [ServerRpc(RequireOwnership = false)]
+    private void ShootServerRpc()
+    {
+        if (playerInfo.currentAmmo.Value > 0)
+        {
+            playerInfo.currentAmmo.Value--;
+        }
     }
 
     public void Shoot()
     {
-        // Prevent shooting if the player is reloading or already shooting (cooldown)
-        if (playerInfo.isReloading)
+        if (playerInfo.isReloading.Value)
         {
-            Debug.Log("Cannot shoot while reloading.");
+            FindObjectOfType<PlayerUI>()?.TriggerReloadWarning();
             return;
         }
 
-        // Check if there is ammo before shooting
-        if (playerInfo.currentAmmo > 0)
+        if (playerInfo.currentAmmo.Value > 0)
         {
-            // Decrease the ammo count
-            playerInfo.currentAmmo--;
+            // Request the server to handle the shooting logic
+            ShootServerRpc();
 
-            // Start cooldown
             isShooting = true;
             StartCoroutine(GunCooldown());
 
-            // Perform a raycast from the player's camera
+            // Determine accuracy based on movement state
+            float accuracy = playerMovement.isMoving ? movingAccuracy : standingAccuracy;
+
+            // Perform a raycast with accuracy spread
             Ray ray = playerCamera.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(ray, out RaycastHit hit))
+            Vector3 spread = GetRandomSpread(accuracy);
+            Vector3 direction = ray.direction + spread;
+
+            if (Physics.Raycast(ray.origin, direction, out RaycastHit hit))
             {
-                // Check if the raycast hit another player
+                // Apply damage if hit a player
                 PlayerInfo targetPlayer = hit.collider.GetComponent<PlayerInfo>();
                 if (targetPlayer != null && targetPlayer != playerInfo)
                 {
-                    // Call ServerRpc to apply damage
                     HitTargetServerRpc(targetPlayer.NetworkObjectId, damage);
+                    // Skip spawning bullet hole if the target is a player
+                    return;
                 }
+
+                // Spawn bullet hole at the point of impact if the target is not a player
+                SpawnBulletHole(hit);
             }
 
-            // Instantiate the cosmetic projectile locally
-            SpawnCosmeticProjectile();
-            Debug.Log("Player Shooting!");
+            // Instantiate cosmetic projectile
+            SpawnCosmeticProjectile(direction);
         }
         else
         {
@@ -64,51 +85,47 @@ public class PlayerShooting : NetworkBehaviour
         }
     }
 
-    // ServerRpc to apply damage to the target player
+    // ServerRpc to apply damage
     [ServerRpc(RequireOwnership = false)]
     private void HitTargetServerRpc(ulong targetNetworkObjectId, int damage)
     {
-        Debug.Log($"[ServerRpc] Attempting to damage object with NetworkObjectId: {targetNetworkObjectId}");
-
-        // Try to get the NetworkObject using the NetworkObjectId
         if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(targetNetworkObjectId, out NetworkObject targetObject))
         {
             PlayerInfo targetPlayer = targetObject.GetComponent<PlayerInfo>();
-
-            if (targetPlayer != null)
-            {
-                // Check if the server is correctly identifying the client target
-                Debug.Log($"[ServerRpc] Target identified: {targetPlayer.gameObject.name}, applying {damage} damage.");
-
-                // Apply damage on the server
-                targetPlayer.TakeDamage(damage);
-
-                // Debug to confirm damage application
-                Debug.Log($"[ServerRpc] Applied {damage} damage to {targetPlayer.gameObject.name}. Current Health: {targetPlayer.health}");
-            }
-            else
-            {
-                Debug.LogWarning("[ServerRpc] Target PlayerInfo component not found.");
-            }
-        }
-        else
-        {
-            Debug.LogWarning("[ServerRpc] NetworkObject not found in SpawnedObjects.");
+            targetPlayer?.TakeDamage(damage);
         }
     }
 
-    // Method to spawn a cosmetic projectile locally
-    private void SpawnCosmeticProjectile()
+    // Method to spawn a bullet hole
+    private void SpawnBulletHole(RaycastHit hit)
+    {
+        if (bulletHolePrefab != null)
+        {
+            GameObject bulletHole = Instantiate(bulletHolePrefab, hit.point, Quaternion.LookRotation(hit.normal));
+            bulletHole.transform.SetParent(hit.collider.transform); // Parent to the hit object
+            Destroy(bulletHole, 60f); // Destroy after 1 minute
+        }
+    }
+
+    // Method to spawn cosmetic projectile
+    private void SpawnCosmeticProjectile(Vector3 direction)
     {
         GameObject cosmeticProjectile = Instantiate(cosmeticProjectilePrefab, shootingPoint.position, shootingPoint.rotation);
         Rigidbody rb = cosmeticProjectile.GetComponent<Rigidbody>();
         if (rb != null)
         {
-            rb.AddForce(shootingPoint.forward * shootingForce, ForceMode.Impulse);
+            rb.AddForce(direction * shootingForce, ForceMode.Impulse);
         }
-
-        // Destroy the cosmetic projectile after 2 seconds
         Destroy(cosmeticProjectile, 2f);
+    }
+
+    // Method to calculate random spread based on accuracy
+    private Vector3 GetRandomSpread(float accuracy)
+    {
+        float spreadFactor = 1f - accuracy;
+        float spreadX = Random.Range(-spreadFactor, spreadFactor);
+        float spreadY = Random.Range(-spreadFactor, spreadFactor);
+        return new Vector3(spreadX, spreadY, 0f);
     }
 
     private IEnumerator GunCooldown()
