@@ -13,7 +13,7 @@ namespace game
         private LobbyPlayerData localLobbyPlayerData;
 
         private LobbyData lobbyData;
-        private int maxNumberOfPlayers = 4;
+        public int maxNumberOfPlayers = 4;
         private int playerCount = 1;
 
         private bool inGame = false;

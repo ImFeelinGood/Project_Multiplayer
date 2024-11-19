@@ -4,6 +4,16 @@ using Unity.Netcode;
 
 public class PlayerShooting : NetworkBehaviour
 {
+    [Header("Animator")]
+    public Animator animator; // Reference to the player's Animator
+
+    [Header("Audio Source")]
+    public AudioSource audioSource;
+
+    [Header("Sound Effects")]
+    public AudioClip gunshotSFX;
+    public AudioClip emptyClickSFX;
+
     [Header("References")]
     public GameObject cosmeticProjectilePrefab;
     public GameObject bulletHolePrefab; // Bullet hole prefab reference
@@ -25,6 +35,17 @@ public class PlayerShooting : NetworkBehaviour
     {
         playerInfo = GetComponent<PlayerInfo>();
         playerMovement = GetComponent<PlayerMovement>();
+
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+        }
+
+        if (animator == null)
+        {
+            animator = GetComponent<Animator>(); // Assign Animator if not manually set
+        }
+
     }
 
     // ServerRpc to handle ammo deduction and shooting logic
@@ -39,19 +60,32 @@ public class PlayerShooting : NetworkBehaviour
 
     public void Shoot()
     {
+        if (isShooting)
+        {
+            Debug.Log("Gun is cooling down. Please wait.");
+            return;
+        }
+
         if (playerInfo.isReloading.Value)
         {
+            PlaySound(emptyClickSFX);
             FindObjectOfType<PlayerUI>()?.TriggerReloadWarning();
+            TriggerEmptyAnimation(); // Trigger the empty animation
             return;
         }
 
         if (playerInfo.currentAmmo.Value > 0)
         {
+            isShooting = true;
+
             // Request the server to handle the shooting logic
             ShootServerRpc();
 
-            isShooting = true;
-            StartCoroutine(GunCooldown());
+            // Play gunshot sound
+            PlaySound(gunshotSFX);
+
+            // Trigger the shooting animation
+            TriggerShootingAnimation();
 
             // Determine accuracy based on movement state
             float accuracy = playerMovement.isMoving ? movingAccuracy : standingAccuracy;
@@ -63,25 +97,53 @@ public class PlayerShooting : NetworkBehaviour
 
             if (Physics.Raycast(ray.origin, direction, out RaycastHit hit))
             {
-                // Apply damage if hit a player
                 PlayerInfo targetPlayer = hit.collider.GetComponent<PlayerInfo>();
                 if (targetPlayer != null && targetPlayer != playerInfo)
                 {
                     HitTargetServerRpc(targetPlayer.NetworkObjectId, damage);
-                    // Skip spawning bullet hole if the target is a player
+                    StartCoroutine(GunCooldown());
                     return;
                 }
 
-                // Spawn bullet hole at the point of impact if the target is not a player
                 SpawnBulletHole(hit);
             }
 
-            // Instantiate cosmetic projectile
             SpawnCosmeticProjectile(direction);
+
+            StartCoroutine(GunCooldown());
         }
         else
         {
             Debug.Log("No ammo left. Reload!");
+            PlaySound(emptyClickSFX);
+            TriggerEmptyAnimation(); // Trigger the empty animation
+        }
+    }
+
+    // Method to trigger the shooting animation
+    private void TriggerShootingAnimation()
+    {
+        if (animator != null)
+        {
+            animator.SetTrigger("ShootTrigger"); // Set the trigger for the animation
+        }
+    }
+
+    // Method to trigger the empty animation
+    private void TriggerEmptyAnimation()
+    {
+        if (animator != null)
+        {
+            animator.SetTrigger("EmptyTrigger"); // Set the trigger for the empty animation
+        }
+    }
+
+    // Play shooting sound when shoot
+    private void PlaySound(AudioClip clip)
+    {
+        if (audioSource != null && clip != null)
+        {
+            audioSource.PlayOneShot(clip);
         }
     }
 
@@ -96,27 +158,94 @@ public class PlayerShooting : NetworkBehaviour
         }
     }
 
-    // Method to spawn a bullet hole
+    // Method to request spawning a bullet hole
     private void SpawnBulletHole(RaycastHit hit)
     {
-        if (bulletHolePrefab != null)
+        // Check if the hit object has a NetworkObject
+        NetworkObject hitNetworkObject = hit.collider.gameObject.GetComponent<NetworkObject>();
+
+        // Request the server to spawn the bullet hole
+        if (hitNetworkObject != null)
         {
-            GameObject bulletHole = Instantiate(bulletHolePrefab, hit.point, Quaternion.LookRotation(hit.normal));
-            bulletHole.transform.SetParent(hit.collider.transform); // Parent to the hit object
-            Destroy(bulletHole, 60f); // Destroy after 1 minute
+            SpawnBulletHoleServerRpc(hit.point, Quaternion.LookRotation(hit.normal), hitNetworkObject.NetworkObjectId);
+        }
+        else
+        {
+            // Fallback: Spawn the bullet hole without parenting if no NetworkObject
+            SpawnBulletHoleServerRpc(hit.point, Quaternion.LookRotation(hit.normal), 0);
         }
     }
 
-    // Method to spawn cosmetic projectile
+    // ServerRpc to spawn the bullet hole on the server
+    [ServerRpc]
+    private void SpawnBulletHoleServerRpc(Vector3 position, Quaternion rotation, ulong parentNetworkObjectId)
+    {
+        // Instantiate the bullet hole on the server
+        GameObject bulletHole = Instantiate(bulletHolePrefab, position, rotation);
+
+        // Parent the bullet hole to the hit object (if it has a valid NetworkObjectId)
+        if (parentNetworkObjectId != 0 && NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(parentNetworkObjectId, out NetworkObject parentObject))
+        {
+            bulletHole.transform.SetParent(parentObject.transform);
+        }
+
+        // Spawn the bullet hole as a NetworkObject
+        NetworkObject networkObject = bulletHole.GetComponent<NetworkObject>();
+        if (networkObject != null)
+        {
+            networkObject.Spawn(); // Spawn it on the network
+        }
+
+        // Destroy the bullet hole after a specific time
+        Destroy(bulletHole, 60f);
+    }
+
+    // Method to request spawning a cosmetic projectile
     private void SpawnCosmeticProjectile(Vector3 direction)
     {
-        GameObject cosmeticProjectile = Instantiate(cosmeticProjectilePrefab, shootingPoint.position, shootingPoint.rotation);
-        Rigidbody rb = cosmeticProjectile.GetComponent<Rigidbody>();
+        // Send a ServerRpc to spawn the projectile
+        SpawnProjectileServerRpc(direction, shootingPoint.position, shootingPoint.rotation);
+    }
+
+    // ServerRpc to spawn the projectile on the server
+    [ServerRpc]
+    private void SpawnProjectileServerRpc(Vector3 direction, Vector3 position, Quaternion rotation)
+    {
+        Vector3 offsetPosition = position + direction.normalized * 0.5f;
+
+        // Instantiate the projectile on the server
+        GameObject projectile = Instantiate(cosmeticProjectilePrefab, offsetPosition, rotation);
+        NetworkObject networkObject = projectile.GetComponent<NetworkObject>();
+        if (networkObject != null)
+        {
+            networkObject.Spawn();
+        }
+
+        // Apply force only on the server
+        Rigidbody rb = projectile.GetComponent<Rigidbody>();
         if (rb != null)
         {
             rb.AddForce(direction * shootingForce, ForceMode.Impulse);
         }
-        Destroy(cosmeticProjectile, 2f);
+
+        // Notify clients to apply force
+        ApplyForceClientRpc(networkObject.NetworkObjectId, direction);
+
+        Destroy(projectile, 2f);
+    }
+
+    // ClientRpc to apply force locally
+    [ClientRpc]
+    private void ApplyForceClientRpc(ulong networkObjectId, Vector3 direction)
+    {
+        if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkObjectId, out NetworkObject projectileObject))
+        {
+            Rigidbody rb = projectileObject.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.AddForce(direction * shootingForce, ForceMode.Impulse);
+            }
+        }
     }
 
     // Method to calculate random spread based on accuracy

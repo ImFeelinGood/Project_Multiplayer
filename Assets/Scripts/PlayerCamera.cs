@@ -18,10 +18,15 @@ public class PlayerCamera : NetworkBehaviour
     private float recoilRotation = 0f; // Stores the current recoil offset
     private float targetRecoil = 0f; // The target recoil value
 
+    // Network variable for camera rotation
+    private NetworkVariable<Quaternion> networkCameraRotation = new NetworkVariable<Quaternion>(
+        Quaternion.identity, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
     void Start()
     {
         if (!IsOwner)
         {
+            // Disable the local camera for other players
             GetComponent<Camera>().enabled = false;
             return;
         }
@@ -32,7 +37,12 @@ public class PlayerCamera : NetworkBehaviour
 
     void Update()
     {
-        if (!IsOwner) return;
+        if (!IsOwner)
+        {
+            // Apply the synced rotation for non-owners
+            transform.localRotation = networkCameraRotation.Value;
+            return;
+        }
 
         // Mouse input
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
@@ -46,13 +56,17 @@ public class PlayerCamera : NetworkBehaviour
         xRotation -= recoilRotation;
 
         // Set the camera's local rotation
-        transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+        Quaternion newRotation = Quaternion.Euler(xRotation, 0f, 0f);
+        transform.localRotation = newRotation;
 
         // Rotate the player body horizontally (left and right)
         playerBody.Rotate(Vector3.up * mouseX);
 
         // Smoothly recover the recoil rotation back to zero
         recoilRotation = Mathf.Lerp(recoilRotation, 0f, recoilRecoverySpeed * Time.deltaTime);
+
+        // Update the camera rotation in the network variable
+        networkCameraRotation.Value = transform.localRotation;
     }
 
     // Method to apply recoil
