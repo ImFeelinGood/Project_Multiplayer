@@ -19,7 +19,11 @@ public class PlayerMovement : NetworkBehaviour
     public bool isMoving; // Tracks if the player is moving
     private CharacterController controller;
     private Vector3 velocity;
-    private bool isGrounded;
+
+    public bool isJumping { get; private set; }
+    public bool isFalling { get; private set; }
+    public bool hasLanded { get; private set; }
+    public bool isGrounded;
 
     void Start()
     {
@@ -47,11 +51,34 @@ public class PlayerMovement : NetworkBehaviour
         if (!IsOwner || cameraTransform == null) return;
 
         // Check if the player is grounded
+        bool wasGrounded = isGrounded;
         isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
 
-        if (isGrounded && velocity.y < 0)
+        if (isGrounded)
         {
-            velocity.y = -2f;
+            if (!wasGrounded)
+            {
+                hasLanded = true; // Detect landing
+                isFalling = false;
+            }
+            else
+            {
+                hasLanded = false; // Reset landing flag
+            }
+
+            // Only reset velocity.y when not jumping
+            if (velocity.y < 0)
+            {
+                velocity.y = -2f; // Small downward force to keep grounded
+            }
+        }
+        else
+        {
+            if (velocity.y < 0)
+            {
+                isFalling = true; // Detect falling
+                isJumping = false; // Reset jumping state
+            }
         }
 
         // Cache input values
@@ -80,14 +107,15 @@ public class PlayerMovement : NetworkBehaviour
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
             velocity.y = Mathf.Sqrt(jumpForce * -2f * gravity);
+            isJumping = true; // Detect jumping
         }
 
         // Apply gravity
         velocity.y += gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
+        controller.Move(new Vector3(0, velocity.y, 0) * Time.deltaTime);
 
         // Rotate the player
-        if (verticalInput != 0)
+        if (verticalInput != 0 || horizontalInput != 0)
         {
             Quaternion toRotation = Quaternion.LookRotation(forward, Vector3.up);
             transform.rotation = Quaternion.RotateTowards(transform.rotation, toRotation, rotationSpeed * Time.deltaTime);

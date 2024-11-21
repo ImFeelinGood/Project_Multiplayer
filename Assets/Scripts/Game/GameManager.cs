@@ -96,8 +96,12 @@ public class GameManager : NetworkBehaviour
         {
             mainMenuPanel.SetActive(true);
         }
+
+        // Unlock cursor
         UnlockCursor();
-        Time.timeScale = 0f; // Pause the game
+
+        // Disable player controls
+        TogglePlayerControls(false);
     }
 
     public void CloseMainMenu()
@@ -107,8 +111,12 @@ public class GameManager : NetworkBehaviour
         {
             mainMenuPanel.SetActive(false);
         }
+
+        // Lock cursor
         LockCursor();
-        Time.timeScale = 1f; // Resume the game
+
+        // Enable player controls
+        TogglePlayerControls(true);
     }
 
     private void LockCursor()
@@ -121,5 +129,37 @@ public class GameManager : NetworkBehaviour
     {
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
+    }
+
+    private void TogglePlayerControls(bool enable)
+    {
+        // Find the player's input components and toggle their state
+        GameObject localPlayer = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject().gameObject;
+        if (localPlayer != null)
+        {
+            var playerInput = localPlayer.GetComponent<PlayerInput>();
+            if (playerInput != null)
+            {
+                playerInput.enabled = enable;
+            }
+
+            var playerMovement = localPlayer.GetComponent<PlayerMovement>();
+            if (playerMovement != null)
+            {
+                playerMovement.enabled = enable;
+            }
+
+            var playerShooting = localPlayer.GetComponent<PlayerShooting>();
+            if (playerShooting != null)
+            {
+                playerShooting.enabled = enable;
+            }
+
+            var playerCamera = localPlayer.GetComponent<PlayerCamera>();
+            if (playerCamera != null)
+            {
+                playerCamera.enabled = enable;
+            }
+        }
     }
 }
