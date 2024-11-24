@@ -1,8 +1,7 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+using Unity.Netcode;
 
-public class WeaponSwayAndBob : MonoBehaviour
+public class WeaponSwayAndBob : NetworkBehaviour
 {
     [Header("References")]
     [SerializeField] private Transform weaponTransform; // The weapon or holder transform
@@ -45,11 +44,21 @@ public class WeaponSwayAndBob : MonoBehaviour
         initialRotation = weaponTransform.localRotation;
     }
 
-    void Update()
+    private void Update()
     {
+        // Ensure this logic only runs on the owner
+        if (!IsOwner) return;
+
         ApplyWeaponSway();
         ApplyBobbing();
         CompositePositionAndRotation();
+    }
+
+    private bool DetermineOwnership()
+    {
+        // Replace this with actual ownership logic
+        // For example: return GetComponent<NetworkObject>().IsOwner;
+        return true; // Simulated owner
     }
 
     private void ApplyWeaponSway()

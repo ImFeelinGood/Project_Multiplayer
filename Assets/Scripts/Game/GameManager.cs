@@ -2,6 +2,7 @@ using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Collections;
 
 public class GameManager : NetworkBehaviour
 {
@@ -13,11 +14,10 @@ public class GameManager : NetworkBehaviour
 
     private void Awake()
     {
-        // Ensure only one instance exists
         if (instance == null)
         {
             instance = this;
-            DontDestroyOnLoad(gameObject); // Keep GameManager across scenes
+            DontDestroyOnLoad(gameObject);
         }
         else
         {
@@ -27,11 +27,12 @@ public class GameManager : NetworkBehaviour
 
     void Start()
     {
-        // Initialize the instance and lock cursor
+        Debug.Log($"Number of spawn points: {spawnPoints?.Length ?? 0}");
+
         instance = this;
+
         LockCursor();
 
-        // Hide the main menu panel at the start
         if (mainMenuPanel != null)
         {
             mainMenuPanel.SetActive(false);
@@ -45,12 +46,86 @@ public class GameManager : NetworkBehaviour
             (byte[] allocationId, byte[] key, byte[] connectionData, string ip, int port) = RelayManager.instance.GetHostConnectionInfo();
             NetworkManager.Singleton.GetComponent<UnityTransport>().SetHostRelayData(ip, (ushort)port, allocationId, key, connectionData, true);
             NetworkManager.Singleton.StartHost();
+
+            // Delay host spawn
+            StartCoroutine(DelayHostSpawn());
         }
         else
         {
             (byte[] allocationId, byte[] key, byte[] connectionData, byte[] hostConnectionData, string ip, int port) = RelayManager.instance.GetClientConnectionInfo();
             NetworkManager.Singleton.GetComponent<UnityTransport>().SetClientRelayData(ip, (ushort)port, allocationId, key, connectionData, hostConnectionData, true);
             NetworkManager.Singleton.StartClient();
+
+            // Delay client spawn
+            StartCoroutine(DelayClientSpawn());
+        }
+    }
+
+    IEnumerator WaitForPlayerObject(ulong clientId)
+    {
+        NetworkObject playerObject = null;
+        while ((playerObject = NetworkManager.Singleton.SpawnManager.GetPlayerNetworkObject(clientId)) == null)
+        {
+            yield return null;
+        }
+
+        Transform spawnPoint = GetSpawnPoint((int)clientId);
+        if (spawnPoint != null)
+        {
+            playerObject.transform.position = spawnPoint.position;
+            playerObject.transform.rotation = spawnPoint.rotation;
+            Debug.Log($"Spawned client {clientId} at {spawnPoint.position}");
+        }
+        else
+        {
+            Debug.LogError($"No spawn point found for client {clientId}!");
+        }
+    }
+
+    private IEnumerator DelayClientSpawn()
+    {
+        yield return new WaitForSeconds(0.5f); // Wait until the spawn process has completed
+
+        var playerObject = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject();
+        if (playerObject != null)
+        {
+            GameObject playerGameObject = playerObject.gameObject;  // Accessing the GameObject
+            Transform spawnPoint = GetRandomSpawnPoint();
+
+            if (spawnPoint != null)
+            {
+                playerGameObject.transform.position = spawnPoint.position;
+                playerGameObject.transform.rotation = spawnPoint.rotation;
+                Debug.Log("Client spawned at: " + spawnPoint.position);
+            }
+        }
+        else
+        {
+            Debug.LogError("Failed to spawn client.");
+        }
+    }
+
+    private IEnumerator DelayHostSpawn()
+    {
+        yield return new WaitForSeconds(0.1f); // Small delay to ensure NetworkObjects are initialized
+
+        // Get the host's player object
+        GameObject hostPlayer = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject().gameObject;
+
+        if (hostPlayer != null)
+        {
+            Transform spawnPoint = GetRandomSpawnPoint();
+
+            if (spawnPoint != null)
+            {
+                hostPlayer.transform.position = spawnPoint.position;
+                hostPlayer.transform.rotation = spawnPoint.rotation;
+                Debug.Log("Host spawned at: " + spawnPoint.position);
+            }
+            else
+            {
+                Debug.LogError("No spawn point found for the host.");
+            }
         }
     }
 
@@ -72,13 +147,78 @@ public class GameManager : NetworkBehaviour
 
     private void ConnectionApproval(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
     {
+        Debug.Log($"Connection approval request from client: {request.ClientNetworkId}");
         response.Approved = true;
         response.CreatePlayerObject = true;
         response.Pending = false;
+
+        // Assign a spawn point to the player
+        int playerId = (int)request.ClientNetworkId; // Use the client's network ID
+        Transform spawnPoint = GetSpawnPoint(playerId);
+
+        AssignSpawnPoint((ulong)playerId);
+
+        if (spawnPoint != null)
+        {
+            // Set the position of the player object after creation
+            NetworkManager.Singleton.OnClientConnectedCallback += (clientId) =>
+            {
+                if (clientId == NetworkManager.Singleton.LocalClientId)
+                {
+                    //GameObject playerObject = NetworkManager.Singleton.SpawnManager.GetPlayerNetworkObject(clientId)?.gameObject;
+                    //if (playerObject != null)
+                    //{
+                    //    playerObject.transform.position = spawnPoint.position;
+                    //    playerObject.transform.rotation = spawnPoint.rotation;
+                    //}
+                    StartCoroutine(DelayClientSpawn());
+                }
+            };
+        }
+    }
+
+    private void AssignSpawnPoint(ulong clientId)
+    {
+        if (spawnPoints == null || spawnPoints.Length == 0)
+        {
+            Debug.LogError("Spawn points are not set in the GameManager!");
+            return;
+        }
+
+        // Convert ulong clientId to int for compatibility
+        int playerId = (int)clientId;
+        Transform spawnPoint = GetSpawnPoint(playerId);
+
+        if (spawnPoint == null)
+        {
+            Debug.LogError($"No spawn point available for clientId {clientId}");
+            return;
+        }
+
+        // Ensure the player object exists before setting position
+        NetworkObject playerNetworkObject = NetworkManager.Singleton.SpawnManager.GetPlayerNetworkObject(clientId);
+        if (playerNetworkObject != null)
+        {
+            playerNetworkObject.transform.position = spawnPoint.position;
+            playerNetworkObject.transform.rotation = spawnPoint.rotation;
+            Debug.Log($"Spawned client {clientId} at {spawnPoint.position}");
+        }
+        else
+        {
+            Debug.LogError($"Player object for client {clientId} not found!");
+        }
+
+        StartCoroutine(WaitForPlayerObject(clientId));
     }
 
     public Transform GetSpawnPoint(int playerId)
     {
+        if (spawnPoints == null || spawnPoints.Length == 0)
+        {
+            Debug.LogError("No spawn points assigned in the GameManager!");
+            return null;
+        }
+
         return spawnPoints[playerId % spawnPoints.Length];
     }
 
@@ -159,6 +299,34 @@ public class GameManager : NetworkBehaviour
             if (playerCamera != null)
             {
                 playerCamera.enabled = enable;
+            }
+        }
+    }
+
+    public Transform GetRandomSpawnPoint()
+    {
+        if (spawnPoints == null || spawnPoints.Length == 0)
+        {
+            Debug.LogError("No spawn points are initialized in GameManager!");
+            return null;
+        }
+
+        int randomIndex = Random.Range(0, spawnPoints.Length);
+        Transform chosenSpawn = spawnPoints[randomIndex];
+
+        Debug.Log($"Selected spawn point: {chosenSpawn.name} at {chosenSpawn.position}");
+        return chosenSpawn;
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        if (IsServer)
+        {
+            Transform spawnPoint = GameManager.instance.GetRandomSpawnPoint();
+            if (spawnPoint != null)
+            {
+                transform.position = spawnPoint.position;
+                transform.rotation = spawnPoint.rotation;
             }
         }
     }

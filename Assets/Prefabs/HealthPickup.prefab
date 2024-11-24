@@ -10,6 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 5487844769592326978}
   - component: {fileID: 2056266445158475877}
+  - component: {fileID: 9162129716912393299}
+  - component: {fileID: 3570669288340160569}
   m_Layer: 0
   m_Name: HealthPickup
   m_TagString: HealthPickup
@@ -45,7 +47,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1807798033
+  GlobalObjectIdHash: 3620801509
   InScenePlacedSourceGlobalObjectIdHash: 0
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
@@ -54,6 +56,39 @@ MonoBehaviour:
   SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
+--- !u!114 &9162129716912393299
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4519228913166445559}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57ff341f829879a4db5fbb2b413fddaa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!95 &3570669288340160569
+Animator:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4519228913166445559}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 29a535bcec4481d48a719edda90a76ea, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &8595213269669408616
 GameObject:
   m_ObjectHideFlags: 0
@@ -66,7 +101,7 @@ GameObject:
   - component: {fileID: 5929558502802920964}
   - component: {fileID: 1675484514592804361}
   - component: {fileID: 8358958578147853112}
-  - component: {fileID: 6095680333143331149}
+  - component: {fileID: 4436964943737041425}
   m_Layer: 0
   m_Name: Cylinder
   m_TagString: AmmoPickup
@@ -162,7 +197,7 @@ CapsuleCollider:
   m_Height: 5
   m_Direction: 1
   m_Center: {x: 0.000000059604645, y: 1.1350234, z: -0.00000011920929}
---- !u!114 &6095680333143331149
+--- !u!114 &4436964943737041425
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -175,4 +210,3 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   healthRestoreAmount: 50
-  respawnTime: 20

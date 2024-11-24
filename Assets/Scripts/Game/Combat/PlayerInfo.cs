@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using Unity.Netcode;
+using Unity.Multiplayer.Samples.Utilities.ClientAuthority;
 
 public class PlayerInfo : NetworkBehaviour
 {
@@ -13,10 +14,18 @@ public class PlayerInfo : NetworkBehaviour
     public float reloadTime = 3f; // Time required to reload
 
     [Header("Ragdoll & Respawn")]
-    public Transform spawnPoint; // The point where the player will respawn
     public float respawnDelay = 3f; // Delay before respawn
-    private Rigidbody[] ragdollBodies; // Array to store ragdoll parts
-    private Animator animator;
+
+    [Header("Animator")]
+    public Animator animator; // Reference to the player's Animator
+
+    [Header("Audio Source")]
+    public AudioSource audioSource;
+
+    [Header("Sound Effects")]
+    public AudioClip reloadSFX;
+
+    private bool isDead = false; // Track death state
 
     private void Start()
     {
@@ -29,15 +38,185 @@ public class PlayerInfo : NetworkBehaviour
     // Method to decrease health
     public void TakeDamage(int damage)
     {
-        if (IsServer)
+        if (!IsServer) return;
+
+        health.Value -= damage;
+        if (health.Value <= 0 && !isDead)
         {
-            health.Value -= damage;
-            if (health.Value <= 0)
-            {
-                Debug.Log("Player died.");
-                HandleDeathServerRpc();
-            }
+            isDead = true; // Set death state
+            StartDeathSequence();
         }
+    }
+
+    private void StartDeathSequence()
+    {
+        Debug.Log($"{gameObject.name} has died!");
+
+        // Disable player controls
+        DisablePlayerControls();
+
+        // Trigger respawn logic after a delay
+        StartCoroutine(RespawnPlayer());
+    }
+
+    private IEnumerator RespawnPlayer()
+    {
+        yield return new WaitForSeconds(respawnDelay);
+
+        // Request the server to respawn the player
+        RespawnServerRpc();
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void RespawnServerRpc()
+    {
+        if (GameManager.instance == null)
+        {
+            Debug.LogError("GameManager instance is null. Cannot respawn player.");
+            return;
+        }
+
+        Transform spawnPoint = GameManager.instance.GetRandomSpawnPoint();
+        if (spawnPoint == null)
+        {
+            Debug.LogError("No valid spawn point found for respawn.");
+            return;
+        }
+
+        Debug.Log($"Respawning player at: {spawnPoint.position}");
+
+        // Disable syncing on the client-side
+        RespawnClientRpc(spawnPoint.position, spawnPoint.rotation);
+
+        // Set position and rotation on the server as well
+        transform.position = spawnPoint.position;
+        transform.rotation = spawnPoint.rotation;
+
+        health.Value = 100;
+        inventoryAmmo.Value = 30;
+        currentAmmo.Value = maxAmmo;
+        isDead = false;
+
+        StartCoroutine(ResetRespawningFlag());
+    }
+
+    private void DisableClientNetworkTransform()
+    {
+        var clientNetworkTransform = GetComponent<ClientNetworkTransform>();
+        if (clientNetworkTransform != null)
+        {
+            clientNetworkTransform.enabled = false; // Temporarily disable syncing
+        }
+    }
+
+    private void EnableClientNetworkTransform()
+    {
+        var clientNetworkTransform = GetComponent<ClientNetworkTransform>();
+        if (clientNetworkTransform != null)
+        {
+            clientNetworkTransform.enabled = true; // Re-enable syncing
+        }
+    }
+
+    /*
+    [ClientRpc]
+    private void RespawnClientRpc(Vector3 newPosition, Quaternion newRotation)
+    {
+        StartCoroutine(ApplyRespawnPosition(newPosition, newRotation));
+    }
+
+    private IEnumerator ApplyRespawnPosition(Vector3 newPosition, Quaternion newRotation)
+    {
+        // Wait for server updates to propagate
+        yield return new WaitForSeconds(0.1f);
+
+        Debug.Log($"Client: Applying respawn position {newPosition}");
+        transform.position = newPosition;
+        transform.rotation = newRotation;
+
+        EnablePlayerControls();
+    }
+    */
+    [ClientRpc]
+    private void RespawnClientRpc(Vector3 newPosition, Quaternion newRotation)
+    {
+        Debug.Log($"Client: Respawning at {newPosition}");
+
+        // Disable the ClientNetworkTransform to stop syncing temporarily
+        DisableClientNetworkTransform();
+
+        // Update position and rotation
+        transform.position = newPosition;
+        transform.rotation = newRotation;
+
+        // Re-enable syncing
+        EnableClientNetworkTransform();
+
+        StartCoroutine(ReEnableControlsAfterSync());
+    }
+
+    private IEnumerator ReEnableControlsAfterSync()
+    {
+        // Wait for synchronization
+        yield return new WaitForSeconds(0.1f);
+
+        // Re-enable controls
+        EnablePlayerControls();
+
+        Debug.Log("Player controls re-enabled after respawn.");
+    }
+
+    private IEnumerator ResetRespawningFlag()
+    {
+        yield return new WaitForSeconds(0.1f);
+        isRespawning = false;
+    }
+
+    private bool isRespawning = false;
+
+    private void Update()
+    {
+        if (isRespawning) return; // Skip updates during respawn
+
+        // Normal movement or transform update logic
+    }
+
+    private void DisablePlayerControls()
+    {
+        var rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+
+        // Disable other components
+        var playerInput = GetComponent<PlayerInput>();
+        var playerMovement = GetComponent<PlayerMovement>();
+        var playerShooting = GetComponent<PlayerShooting>();
+
+        if (playerInput != null) playerInput.enabled = false;
+        if (playerMovement != null) playerMovement.enabled = false;
+        if (playerShooting != null) playerShooting.enabled = false;
+    }
+
+    private void EnablePlayerControls()
+    {
+        var rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = false;
+        }
+
+        // Enable other components
+        var playerInput = GetComponent<PlayerInput>();
+        var playerMovement = GetComponent<PlayerMovement>();
+        var playerShooting = GetComponent<PlayerShooting>();
+
+        if (playerInput != null) playerInput.enabled = true;
+        if (playerMovement != null) playerMovement.enabled = true;
+        if (playerShooting != null) playerShooting.enabled = true;
     }
 
     // Method to restore health
@@ -59,66 +238,6 @@ public class PlayerInfo : NetworkBehaviour
         Debug.Log("Ammo restored by " + amount);
     }
 
-    // ServerRpc to handle player death and ragdoll
-    [ServerRpc(RequireOwnership = false)]
-    private void HandleDeathServerRpc()
-    {
-        ToggleRagdoll(true); // Enable ragdoll
-        StartCoroutine(RespawnPlayer()); // Start respawn coroutine
-    }
-
-    // Method to toggle ragdoll effect
-    private void ToggleRagdoll(bool enable)
-    {
-        if (animator != null)
-        {
-            animator.enabled = !enable;
-        }
-
-        foreach (Rigidbody rb in ragdollBodies)
-        {
-            rb.isKinematic = !enable;
-            rb.useGravity = enable;
-        }
-    }
-
-    [ServerRpc(RequireOwnership = false)]
-    private void SetRespawnPositionServerRpc(Vector3 position, Quaternion rotation)
-    {
-        transform.position = position;
-        transform.rotation = rotation;
-    }
-
-    // Coroutine to respawn the player
-    private IEnumerator RespawnPlayer()
-    {
-        yield return new WaitForSeconds(respawnDelay);
-
-        if (spawnPoint == null)
-        {
-            Debug.LogError("Spawn point is not assigned!");
-            yield break;
-        }
-
-        // Reset health and ammo
-        health.Value = 100;
-        currentAmmo.Value = maxAmmo;
-
-        // Move the player to the spawn point
-        if (IsServer)
-        {
-            transform.position = spawnPoint.position;
-            transform.rotation = spawnPoint.rotation;
-        }
-        else
-        {
-            SetRespawnPositionServerRpc(spawnPoint.position, spawnPoint.rotation);
-        }
-
-        // Disable ragdoll and re-enable player controls
-        ToggleRagdoll(false);
-    }
-
     // ServerRpc to handle reload logic on the server
     [ServerRpc(RequireOwnership = false)]
     private void ReloadServerRpc()
@@ -137,8 +256,26 @@ public class PlayerInfo : NetworkBehaviour
             return;
         }
 
+        PlaySound(reloadSFX);
+        TriggerReloadAnimation();
         Debug.Log("Reloading...");
         ReloadServerRpc(); // Trigger reload on the server
+    }
+
+    private void PlaySound(AudioClip clip)
+    {
+        if (audioSource != null && clip != null)
+        {
+            audioSource.PlayOneShot(clip);
+        }
+    }
+
+    private void TriggerReloadAnimation()
+    {
+        if (animator != null)
+        {
+            animator.SetTrigger("ReloadTrigger"); // Set the trigger for the empty animation
+        }
     }
 
     // Coroutine to handle the reload process
