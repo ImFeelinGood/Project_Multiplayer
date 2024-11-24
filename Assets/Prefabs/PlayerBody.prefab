@@ -170,6 +170,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5155804099704069033}
+  - component: {fileID: 6457252684024836858}
   - component: {fileID: 4459007856124413957}
   - component: {fileID: 2098263844146136960}
   - component: {fileID: 5913426789717042418}
@@ -180,7 +181,6 @@ GameObject:
   - component: {fileID: 3625159772515539720}
   - component: {fileID: 1252899249664328662}
   - component: {fileID: 5405078006947114656}
-  - component: {fileID: 8156990270043223178}
   m_Layer: 0
   m_Name: PlayerBody
   m_TagString: Player
@@ -208,6 +208,27 @@ Transform:
   - {fileID: 1339346638193049730}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!95 &6457252684024836858
+Animator:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 866083650288600561}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 8350c0a025c28df48bde7de171c7801b, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!33 &4459007856124413957
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -317,7 +338,7 @@ MonoBehaviour:
   movementSpeed: 10
   rotationSpeed: 500
   cameraTransform: {fileID: 5551067331063580324}
-  jumpForce: 4
+  jumpForce: 2
   gravity: -20
   groundCheck: {fileID: 1339346638193049730}
   groundDistance: 0.4
@@ -397,7 +418,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 616da059fc414c34ca6d9bb0cd716049, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  animator: {fileID: 8156990270043223178}
+  animator: {fileID: 0}
   audioSource: {fileID: 1843748367991231429}
   gunshotSFX: {fileID: 8300000, guid: 947d80427986cb44c90597fcbe7f69da, type: 3}
   emptyClickSFX: {fileID: 8300000, guid: 240aa00abf414fa42ac949ee1d9bbef5, type: 3}
@@ -448,27 +469,6 @@ MonoBehaviour:
   reloadTime: 3
   spawnPoint: {fileID: 3828500266161431270, guid: 615ce1c1fbc01c04e94052a136bbe197, type: 3}
   respawnDelay: 3
---- !u!95 &8156990270043223178
-Animator:
-  serializedVersion: 5
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 866083650288600561}
-  m_Enabled: 1
-  m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 8350c0a025c28df48bde7de171c7801b, type: 2}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &1250221516536646608
 GameObject:
   m_ObjectHideFlags: 0
@@ -481,7 +481,7 @@ GameObject:
   - component: {fileID: 8410834162349221207}
   - component: {fileID: 2943006935475613103}
   - component: {fileID: 8499709738687610279}
-  - component: {fileID: 3370820301164390054}
+  - component: {fileID: 7187462823178237317}
   m_Layer: 0
   m_Name: MainCamera
   m_TagString: MainCamera
@@ -577,7 +577,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 705e422c851a6f143a693dba493c6b9e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &3370820301164390054
+--- !u!114 &7187462823178237317
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -589,7 +589,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d9315b1c7706644e86c82e25a9472a7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mouseSensitivity: 1000
+  mouseSensitivity: 100
   playerBody: {fileID: 5155804099704069033}
   recoilAmount: 1
   recoilSpeed: 5
@@ -2465,7 +2465,7 @@ MonoBehaviour:
   swayMaxRotation: 5
   swaySmoothness: 10
   bobSpeed: 6
-  bobAmount: 0.02
+  bobAmount: 0.005
   bobRotationAmount: 2
   travelLimit: {x: 0.025, y: 0.025, z: 0.025}
   rotationMultiplier: {x: 2, y: 1, z: 1}
@@ -2895,7 +2895,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7145968658025563351}
-  - component: {fileID: 1358050970029429039}
   m_Layer: 0
   m_Name: Pistol
   m_TagString: Player
@@ -2930,27 +2929,6 @@ Transform:
   - {fileID: 598234271982246947}
   m_Father: {fileID: 7123224057789248623}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!95 &1358050970029429039
-Animator:
-  serializedVersion: 5
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6723326507441459228}
-  m_Enabled: 1
-  m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: a262ecec156ec7845bcdef0d7620b86c, type: 2}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &6919721515922934247
 GameObject:
   m_ObjectHideFlags: 0

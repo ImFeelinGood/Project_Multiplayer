@@ -16,11 +16,9 @@ public class PlayerCamera : NetworkBehaviour
 
     private float xRotation = 0f;
     private float recoilRotation = 0f; // Stores the current recoil offset
-    private float targetRecoil = 0f; // The target recoil value
 
     // Network variable for camera rotation
-    private NetworkVariable<Quaternion> networkCameraRotation = new NetworkVariable<Quaternion>(
-        Quaternion.identity, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    private NetworkVariable<Quaternion> networkCameraRotation = new NetworkVariable<Quaternion>(Quaternion.identity, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
     void Start()
     {
