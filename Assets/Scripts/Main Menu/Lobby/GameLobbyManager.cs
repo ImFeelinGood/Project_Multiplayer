@@ -129,6 +129,12 @@ namespace game
         public async Task StartGame()
         {
             string relayJoinCode = await RelayManager.instance.CreateRelay(maxNumberOfPlayers);
+            if (string.IsNullOrEmpty(relayJoinCode))
+            {
+                Debug.LogError("Failed to create Relay join code!");
+                return;
+            }
+
             inGame = true;
 
             lobbyData.RelayJoinCode = relayJoinCode;

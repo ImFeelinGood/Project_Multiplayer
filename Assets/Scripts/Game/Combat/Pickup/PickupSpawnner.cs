@@ -58,7 +58,7 @@ public class PickupSpawner : MonoBehaviour
                         // Ensure it has a NetworkObject component
                         if (pickup.TryGetComponent<NetworkObject>(out var networkObject))
                         {
-                            networkObject.Spawn(true); // Host spawns objects
+                            networkObject.Spawn(true); // Spawn with server authority
                             Debug.Log($"Spawned {pickup.name} at {spawnPoint.position}");
 
                             // Track the spawned pickup
@@ -157,7 +157,7 @@ public class PickupSpawner : MonoBehaviour
             // Ensure it has a NetworkObject component and spawn it
             if (pickup.TryGetComponent<NetworkObject>(out var networkObject))
             {
-                networkObject.Spawn(true); // Host spawns objects
+                networkObject.Spawn(true); // Spawn with server authority
                 Debug.Log($"Respawned {pickup.name} at {spawnPoint.position}");
             }
             else

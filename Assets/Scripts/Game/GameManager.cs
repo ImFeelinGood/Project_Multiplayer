@@ -3,12 +3,14 @@ using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections;
+using UnityEngine.UI;
 
 public class GameManager : NetworkBehaviour
 {
     public static GameManager instance;
     public Transform[] spawnPoints;
     public GameObject mainMenuPanel; // Reference to the main menu panel
+    public Slider sensitivitySlider; // Reference to the slider in the UI
 
     private bool isMainMenuOpen = false;
 
@@ -58,6 +60,58 @@ public class GameManager : NetworkBehaviour
 
             // Delay client spawn
             StartCoroutine(DelayClientSpawn());
+        }
+
+        if (sensitivitySlider != null)
+        {
+            sensitivitySlider.minValue = 0.01f;
+            sensitivitySlider.maxValue = 10f;
+
+            // Load saved sensitivity or default to 100
+            float savedSensitivity = PlayerPrefs.GetFloat("CameraSensitivity", 1f);
+            sensitivitySlider.value = savedSensitivity;
+
+            // Add listener for sensitivity changes
+            sensitivitySlider.onValueChanged.AddListener(OnSensitivityChanged);
+        }
+    }
+
+    public void OnSensitivityChanged(float newSensitivity)
+    {
+        Debug.Log($"New sensitivity set: {newSensitivity}");
+        PlayerPrefs.SetFloat("CameraSensitivity", newSensitivity);
+        PlayerPrefs.Save();
+
+        // Update the PlayerCamera directly
+        GameObject localPlayer = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject()?.gameObject;
+
+        if (localPlayer != null)
+        {
+            Debug.Log($"Local player hierarchy:\n{PrintHierarchy(localPlayer.transform)}");
+
+            var playerCamera = localPlayer.GetComponentInChildren<PlayerCamera>();
+            if (playerCamera != null)
+            {
+                playerCamera.UpdateSensitivity(newSensitivity);
+            }
+            else
+            {
+                Debug.LogError("PlayerCamera component not found in hierarchy!");
+            }
+        }
+        else
+        {
+            Debug.LogError("Local player object not found!");
+        }
+
+        string PrintHierarchy(Transform root)
+        {
+            string hierarchy = root.name;
+            foreach (Transform child in root)
+            {
+                hierarchy += "\n- " + PrintHierarchy(child);
+            }
+            return hierarchy;
         }
     }
 

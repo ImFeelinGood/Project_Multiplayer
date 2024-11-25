@@ -18,7 +18,7 @@ public class PlayerMovement : NetworkBehaviour
     public Quaternion targetRotation;
     public bool isMoving; // Tracks if the player is moving
     private CharacterController controller;
-    private Vector3 velocity;
+    public Vector3 velocity;
 
     public bool isJumping { get; private set; }
     public bool isFalling { get; private set; }

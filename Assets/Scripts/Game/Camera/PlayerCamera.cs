@@ -6,7 +6,7 @@ using Unity.Netcode;
 public class PlayerCamera : NetworkBehaviour
 {
     [Header("Camera Settings")]
-    [SerializeField] private float mouseSensitivity = 100f;
+    public float mouseSensitivity = 1f; // Default sensitivity
     [SerializeField] private Transform playerBody;
 
     [Header("Recoil Settings")]
@@ -20,6 +20,8 @@ public class PlayerCamera : NetworkBehaviour
     // Network variable for camera rotation
     private NetworkVariable<Quaternion> networkCameraRotation = new NetworkVariable<Quaternion>(Quaternion.identity, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
+    private bool isCameraActive = true; // Tracks whether the camera is active
+
     void Start()
     {
         if (!IsOwner)
@@ -29,8 +31,13 @@ public class PlayerCamera : NetworkBehaviour
             return;
         }
 
-        // Lock the cursor for the owning player
+        // Lock cursor and load saved sensitivity
         Cursor.lockState = CursorLockMode.Locked;
+
+        // Normalize sensitivity by screen width (optional)
+        float baseWidth = 1920f; // Base resolution width
+        float resolutionScale = Screen.width / baseWidth;
+        mouseSensitivity = PlayerPrefs.GetFloat("CameraSensitivity", 1f) * resolutionScale;
     }
 
     void Update()
@@ -42,9 +49,11 @@ public class PlayerCamera : NetworkBehaviour
             return;
         }
 
+        if (!isCameraActive) return;
+
         // Mouse input
-        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
-        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
+        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
+        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
 
         // Adjust vertical rotation (looking up and down) based on mouse input
         xRotation -= mouseY;
@@ -65,6 +74,21 @@ public class PlayerCamera : NetworkBehaviour
 
         // Update the camera rotation in the network variable
         networkCameraRotation.Value = transform.localRotation;
+    }
+
+    public void SetCameraActive(bool active)
+    {
+        isCameraActive = active;
+        if (!active)
+        {
+            networkCameraRotation.Value = transform.localRotation; // Ensure rotation remains consistent for others
+        }
+    }
+
+    public void UpdateSensitivity(float newSensitivity)
+    {
+        mouseSensitivity = newSensitivity;
+        Debug.Log($"Mouse sensitivity updated to: {mouseSensitivity}");
     }
 
     // Method to apply recoil

@@ -43,6 +43,7 @@ GameObject:
   m_Component:
   - component: {fileID: 935693829283935426}
   - component: {fileID: 1843748367991231429}
+  - component: {fileID: 7302443729093194801}
   m_Layer: 0
   m_Name: Audio Source
   m_TagString: Untagged
@@ -121,7 +122,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -161,6 +162,27 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &7302443729093194801
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 802585563432573867}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  GlobalObjectIdHash: 500024292
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
 --- !u!1 &866083650288600561
 GameObject:
   m_ObjectHideFlags: 0
@@ -431,6 +453,7 @@ MonoBehaviour:
   damage: 30
   movingAccuracy: 0.95
   standingAccuracy: 0.995
+  jumpingAccuracy: 0.8
 --- !u!114 &1252899249664328662
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -14,8 +14,9 @@ public class HealthPickup : BasePickup
             {
                 int restoreAmount = Mathf.Min(healthRestoreAmount, 100 - player.health.Value);
                 player.RestoreHealthServerRpc(restoreAmount);
-                NotifyPickupTaken(); // Notify spawner that the pickup was taken
-                NetworkObject.Despawn(); // Despawn the pickup
+
+                // Notify the server to despawn this pickup
+                TakePickupServerRpc();
             }
         }
     }

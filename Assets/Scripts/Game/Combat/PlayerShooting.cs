@@ -24,8 +24,9 @@ public class PlayerShooting : NetworkBehaviour
 
     [Header("Shooting Settings")]
     public int damage = 30;
-    public float movingAccuracy = 0.6f; // 60% accuracy
-    public float standingAccuracy = 0.9f; // 90% accuracy
+    public float movingAccuracy = 0.95f; // 95% accuracy
+    public float standingAccuracy = 0.995f; // 99.5% accuracy
+    public float jumpingAccuracy = 0.8f; // 80% accuracy when jumping
 
     private PlayerInfo playerInfo;
     private PlayerMovement playerMovement;
@@ -55,6 +56,7 @@ public class PlayerShooting : NetworkBehaviour
         if (playerInfo.currentAmmo.Value > 0)
         {
             playerInfo.currentAmmo.Value--;
+            PlayGunshotSoundClientRpc(); // Broadcast gunshot sound
         }
     }
 
@@ -68,7 +70,6 @@ public class PlayerShooting : NetworkBehaviour
 
         if (playerInfo.isReloading.Value)
         {
-            PlaySound(emptyClickSFX);
             FindObjectOfType<PlayerUI>()?.TriggerReloadWarning();
             TriggerEmptyAnimation(); // Trigger the empty animation
             return;
@@ -81,14 +82,23 @@ public class PlayerShooting : NetworkBehaviour
             // Request the server to handle the shooting logic
             ShootServerRpc();
 
-            // Play gunshot sound
-            PlaySound(gunshotSFX);
-
             // Trigger the shooting animation
             TriggerShootingAnimation();
 
             // Determine accuracy based on movement state
-            float accuracy = playerMovement.isMoving ? movingAccuracy : standingAccuracy;
+            float accuracy;
+            if (playerMovement.isJumping || playerMovement.isFalling)
+            {
+                accuracy = jumpingAccuracy; // Use jumping accuracy if the player is in the air
+            }
+            else if (playerMovement.isMoving)
+            {
+                accuracy = movingAccuracy; // Use moving accuracy if the player is walking/running
+            }
+            else
+            {
+                accuracy = standingAccuracy; // Use standing accuracy otherwise
+            }
 
             // Perform a raycast with accuracy spread
             Ray ray = playerCamera.ScreenPointToRay(Input.mousePosition);
@@ -115,7 +125,7 @@ public class PlayerShooting : NetworkBehaviour
         else
         {
             Debug.Log("No ammo left. Reload!");
-            PlaySound(emptyClickSFX);
+            PlaySound(emptyClickSFX); // Play empty sound
             TriggerEmptyAnimation(); // Trigger the empty animation
         }
     }
@@ -145,6 +155,14 @@ public class PlayerShooting : NetworkBehaviour
         {
             audioSource.PlayOneShot(clip);
         }
+    }
+
+
+    // ClientRpc to play the gunshot sound
+    [ClientRpc]
+    private void PlayGunshotSoundClientRpc()
+    {
+        PlaySound(gunshotSFX);
     }
 
     // ServerRpc to apply damage

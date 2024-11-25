@@ -14,8 +14,9 @@ public class AmmoPickup : BasePickup
             {
                 int restoreAmount = Mathf.Min(ammoRestoreAmount, 30 - player.inventoryAmmo.Value);
                 player.RestoreAmmoServerRpc(restoreAmount);
-                NotifyPickupTaken(); // Notify spawner that the pickup was taken
-                NetworkObject.Despawn(); // Despawn the pickup
+
+                // Notify the server to despawn this pickup
+                TakePickupServerRpc();
             }
         }
     }

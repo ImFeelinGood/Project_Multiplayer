@@ -6,6 +6,8 @@ public class Init : MonoBehaviour
 {
     async void Start()
     {
+        PlayerPrefs.DeleteAll();
+
         // Initialize Unity Services
         await UnityServices.InitializeAsync();
 
